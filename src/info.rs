@@ -13,6 +13,8 @@ pub const PID_STREAMDECK_XL: u16 = 0x006c;
 pub const PID_STREAMDECK_XL_V2: u16 = 0x008f;
 /// Product ID of Stream Deck Mk2
 pub const PID_STREAMDECK_MK2: u16 = 0x0080;
+/// Product ID of Stream Deck Mk2 with Scissor Keys
+pub const PID_STREAMDECK_MK2_SCISSOR_KEYS: u16 = 0x00a5;
 /// Product ID of Stream Deck Mini Mk2
 pub const PID_STREAMDECK_MINI_MK2: u16 = 0x0090;
 /// Product ID of Stream Deck Neo
@@ -44,6 +46,8 @@ pub enum Kind {
     XlV2,
     /// Stream Deck Mk2
     Mk2,
+    /// Stream Deck Mk2 with Scissor Keys
+    Mk2Scissor,
     /// Stream Deck Mini Mk2
     MiniMk2,
     /// Stream Deck Neo
@@ -65,6 +69,7 @@ impl Kind {
                 PID_STREAMDECK_XL => Some(Kind::Xl),
                 PID_STREAMDECK_XL_V2 => Some(Kind::XlV2),
                 PID_STREAMDECK_MK2 => Some(Kind::Mk2),
+                PID_STREAMDECK_MK2_SCISSOR_KEYS => Some(Kind::Mk2Scissor),
                 PID_STREAMDECK_MINI_MK2 => Some(Kind::MiniMk2),
                 PID_STREAMDECK_NEO => Some(Kind::Neo),
                 PID_STREAMDECK_PEDAL => Some(Kind::Pedal),
@@ -84,6 +89,7 @@ impl Kind {
             Kind::Xl => PID_STREAMDECK_XL,
             Kind::XlV2 => PID_STREAMDECK_XL_V2,
             Kind::Mk2 => PID_STREAMDECK_MK2,
+            Kind::Mk2Scissor => PID_STREAMDECK_MK2_SCISSOR_KEYS,
             Kind::MiniMk2 => PID_STREAMDECK_MINI_MK2,
             Kind::Neo => PID_STREAMDECK_NEO,
             Kind::Pedal => PID_STREAMDECK_PEDAL,
@@ -100,6 +106,7 @@ impl Kind {
             Kind::Xl => ELGATO_VENDOR_ID,
             Kind::XlV2 => ELGATO_VENDOR_ID,
             Kind::Mk2 => ELGATO_VENDOR_ID,
+            Kind::Mk2Scissor => ELGATO_VENDOR_ID,
             Kind::MiniMk2 => ELGATO_VENDOR_ID,
             Kind::Neo => ELGATO_VENDOR_ID,
             Kind::Pedal => ELGATO_VENDOR_ID,
@@ -110,7 +117,7 @@ impl Kind {
     /// Amount of keys the Stream Deck kind has
     pub fn key_count(&self) -> u8 {
         match self {
-            Kind::Original | Kind::OriginalV2 | Kind::Mk2 => 15,
+            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => 15,
             Kind::Mini | Kind::MiniMk2 => 6,
             Kind::Xl | Kind::XlV2 => 32,
             Kind::Pedal => 3,
@@ -121,7 +128,7 @@ impl Kind {
     /// Amount of button rows the Stream Deck kind has
     pub fn row_count(&self) -> u8 {
         match self {
-            Kind::Original | Kind::OriginalV2 | Kind::Mk2 => 3,
+            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => 3,
             Kind::Mini | Kind::MiniMk2 => 2,
             Kind::Xl | Kind::XlV2 => 4,
             Kind::Pedal => 1,
@@ -132,7 +139,7 @@ impl Kind {
     /// Amount of button columns the Stream Deck kind has
     pub fn column_count(&self) -> u8 {
         match self {
-            Kind::Original | Kind::OriginalV2 | Kind::Mk2 => 5,
+            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => 5,
             Kind::Mini | Kind::MiniMk2 => 3,
             Kind::Xl | Kind::XlV2 => 8,
             Kind::Pedal => 3,
@@ -185,7 +192,7 @@ impl Kind {
                 mirror: ImageMirroring::Both,
             },
 
-            Kind::OriginalV2 | Kind::Mk2 => ImageFormat {
+            Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => ImageFormat {
                 mode: ImageMode::JPEG,
                 size: (72, 72),
                 rotation: ImageRotation::Rot0,
@@ -252,7 +259,7 @@ impl Kind {
                 data
             }
 
-            Kind::OriginalV2 | Kind::Mk2 => vec![
+            Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => vec![
                 0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06, 0x07, 0x06,
                 0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0a, 0x0c, 0x14, 0x0d, 0x0c, 0x0b, 0x0b, 0x0c, 0x19, 0x12, 0x13, 0x0f, 0x14, 0x1d, 0x1a, 0x1f, 0x1e, 0x1d, 0x1a, 0x1c, 0x1c, 0x20,
                 0x24, 0x2e, 0x27, 0x20, 0x22, 0x2c, 0x23, 0x1c, 0x1c, 0x28, 0x37, 0x29, 0x2c, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1f, 0x27, 0x39, 0x3d, 0x38, 0x32, 0x3c, 0x2e, 0x33, 0x34, 0x32, 0xff,
