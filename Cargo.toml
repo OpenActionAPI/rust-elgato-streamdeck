@@ -2,7 +2,7 @@
 name = "elgato-streamdeck"
 description = "HidApi driver for Elgato Stream Deck devices"
 authors = ["TheJebForge", "nekename"]
-version = "0.11.0"
+version = "0.11.1"
 edition = "2024"
 repository = "https://github.com/OpenActionAPI/rust-elgato-streamdeck"
 license = "MPL-2.0"
