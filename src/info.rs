@@ -23,6 +23,12 @@ pub const PID_STREAMDECK_NEO: u16 = 0x009a;
 pub const PID_STREAMDECK_PEDAL: u16 = 0x0086;
 /// Product ID of Stream Deck Plus
 pub const PID_STREAMDECK_PLUS: u16 = 0x0084;
+/// Product ID of Stream Deck Mini Mk2 Module
+pub const PID_STREAMDECK_MINI_MK2_MODULE: u16 = 0x00b8;
+/// Product ID of Stream Deck Mk2 Module
+pub const PID_STREAMDECK_MK2_MODULE: u16 = 0x00b9;
+/// Product ID of second revision of Stream Deck XL Module
+pub const PID_STREAMDECK_XL_V2_MODULE: u16 = 0x00ba;
 
 const RECOGNIZED_VENDORS: [u16; 1] = [ELGATO_VENDOR_ID];
 
@@ -56,6 +62,12 @@ pub enum Kind {
     Pedal,
     /// Stream Deck Plus
     Plus,
+    /// Stream Deck Mini Mk2 Module
+    MiniMk2Module,
+    /// Stream Deck Mk2 Module
+    Mk2Module,
+    /// Stream Deck XL Module
+    XlV2Module,
 }
 
 impl Kind {
@@ -74,6 +86,9 @@ impl Kind {
                 PID_STREAMDECK_NEO => Some(Kind::Neo),
                 PID_STREAMDECK_PEDAL => Some(Kind::Pedal),
                 PID_STREAMDECK_PLUS => Some(Kind::Plus),
+                PID_STREAMDECK_MINI_MK2_MODULE => Some(Kind::MiniMk2Module),
+                PID_STREAMDECK_MK2_MODULE => Some(Kind::Mk2Module),
+                PID_STREAMDECK_XL_V2_MODULE => Some(Kind::XlV2Module),
                 _ => None,
             },
             _ => None,
@@ -94,6 +109,9 @@ impl Kind {
             Kind::Neo => PID_STREAMDECK_NEO,
             Kind::Pedal => PID_STREAMDECK_PEDAL,
             Kind::Plus => PID_STREAMDECK_PLUS,
+            Kind::MiniMk2Module => PID_STREAMDECK_MINI_MK2_MODULE,
+            Kind::Mk2Module => PID_STREAMDECK_MK2_MODULE,
+            Kind::XlV2Module => PID_STREAMDECK_XL_V2_MODULE,
         }
     }
 
@@ -111,15 +129,18 @@ impl Kind {
             Kind::Neo => ELGATO_VENDOR_ID,
             Kind::Pedal => ELGATO_VENDOR_ID,
             Kind::Plus => ELGATO_VENDOR_ID,
+            Kind::MiniMk2Module => ELGATO_VENDOR_ID,
+            Kind::Mk2Module => ELGATO_VENDOR_ID,
+            Kind::XlV2Module => ELGATO_VENDOR_ID,
         }
     }
 
     /// Amount of keys the Stream Deck kind has
     pub fn key_count(&self) -> u8 {
         match self {
-            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => 15,
-            Kind::Mini | Kind::MiniMk2 => 6,
-            Kind::Xl | Kind::XlV2 => 32,
+            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => 15,
+            Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => 6,
+            Kind::Xl | Kind::XlV2 | Kind::XlV2Module => 32,
             Kind::Pedal => 3,
             Kind::Neo | Kind::Plus => 8,
         }
@@ -128,9 +149,9 @@ impl Kind {
     /// Amount of button rows the Stream Deck kind has
     pub fn row_count(&self) -> u8 {
         match self {
-            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => 3,
-            Kind::Mini | Kind::MiniMk2 => 2,
-            Kind::Xl | Kind::XlV2 => 4,
+            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => 3,
+            Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => 2,
+            Kind::Xl | Kind::XlV2 | Kind::XlV2Module => 4,
             Kind::Pedal => 1,
             Kind::Neo | Kind::Plus => 2,
         }
@@ -139,9 +160,9 @@ impl Kind {
     /// Amount of button columns the Stream Deck kind has
     pub fn column_count(&self) -> u8 {
         match self {
-            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => 5,
-            Kind::Mini | Kind::MiniMk2 => 3,
-            Kind::Xl | Kind::XlV2 => 8,
+            Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => 5,
+            Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => 3,
+            Kind::Xl | Kind::XlV2 | Kind::XlV2Module => 8,
             Kind::Pedal => 3,
             Kind::Neo | Kind::Plus => 4,
         }
@@ -192,21 +213,21 @@ impl Kind {
                 mirror: ImageMirroring::Both,
             },
 
-            Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => ImageFormat {
+            Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => ImageFormat {
                 mode: ImageMode::JPEG,
                 size: (72, 72),
                 rotation: ImageRotation::Rot0,
                 mirror: ImageMirroring::Both,
             },
 
-            Kind::Mini | Kind::MiniMk2 => ImageFormat {
+            Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => ImageFormat {
                 mode: ImageMode::BMP,
                 size: (80, 80),
                 rotation: ImageRotation::Rot90,
                 mirror: ImageMirroring::X,
             },
 
-            Kind::Neo | Kind::Xl | Kind::XlV2 => ImageFormat {
+            Kind::Neo | Kind::Xl | Kind::XlV2 | Kind::XlV2Module => ImageFormat {
                 mode: ImageMode::JPEG,
                 size: (96, 96),
                 rotation: ImageRotation::Rot0,
@@ -246,7 +267,7 @@ impl Kind {
     /// Returns blank image data appropriate for the Stream Deck kind
     pub fn blank_image(&self) -> Vec<u8> {
         match self {
-            Kind::Original | Kind::Mini | Kind::MiniMk2 => {
+            Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => {
                 let mut data = vec![
                     0x42, 0x4d, 0xf6, 0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x01, 0x00, 0x18, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0xc0, 0x3c, 0x00, 0x00, 0xc4, 0x0e, 0x00, 0x00, 0xc4, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -259,7 +280,7 @@ impl Kind {
                 data
             }
 
-            Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor => vec![
+            Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => vec![
                 0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06, 0x07, 0x06,
                 0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0a, 0x0c, 0x14, 0x0d, 0x0c, 0x0b, 0x0b, 0x0c, 0x19, 0x12, 0x13, 0x0f, 0x14, 0x1d, 0x1a, 0x1f, 0x1e, 0x1d, 0x1a, 0x1c, 0x1c, 0x20,
                 0x24, 0x2e, 0x27, 0x20, 0x22, 0x2c, 0x23, 0x1c, 0x1c, 0x28, 0x37, 0x29, 0x2c, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1f, 0x27, 0x39, 0x3d, 0x38, 0x32, 0x3c, 0x2e, 0x33, 0x34, 0x32, 0xff,
@@ -287,7 +308,7 @@ impl Kind {
                 0x02, 0x8a, 0x28, 0xa0, 0x0f, 0xff, 0xd9,
             ],
 
-            Kind::Neo | Kind::Xl | Kind::XlV2 => vec![
+            Kind::Neo | Kind::Xl | Kind::XlV2 | Kind::XlV2Module => vec![
                 0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06, 0x07, 0x06,
                 0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0a, 0x0c, 0x14, 0x0d, 0x0c, 0x0b, 0x0b, 0x0c, 0x19, 0x12, 0x13, 0x0f, 0x14, 0x1d, 0x1a, 0x1f, 0x1e, 0x1d, 0x1a, 0x1c, 0x1c, 0x20,
                 0x24, 0x2e, 0x27, 0x20, 0x22, 0x2c, 0x23, 0x1c, 0x1c, 0x28, 0x37, 0x29, 0x2c, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1f, 0x27, 0x39, 0x3d, 0x38, 0x32, 0x3c, 0x2e, 0x33, 0x34, 0x32, 0xff,
