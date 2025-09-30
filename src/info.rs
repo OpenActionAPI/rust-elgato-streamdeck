@@ -1,3 +1,5 @@
+use strum::{Display, EnumIter, EnumString};
+
 /// HIDAPI Vendor ID that Elgato products use
 pub const ELGATO_VENDOR_ID: u16 = 0x0fd9;
 
@@ -39,6 +41,7 @@ pub fn is_vendor_familiar(vendor: &u16) -> bool {
 
 /// Enum describing kinds of Stream Decks out there
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Display, EnumIter, EnumString)]
 pub enum Kind {
     /// First revision of original Stream Deck
     Original,
