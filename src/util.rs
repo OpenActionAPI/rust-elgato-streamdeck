@@ -70,7 +70,7 @@ pub fn read_button_states(kind: &Kind, states: &[u8]) -> Vec<bool> {
             bools
         }
 
-        Kind::Mini | Kind::MiniMk2 => states[1..].iter().map(|s| *s != 0).collect(),
+        Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => states[1..].iter().map(|s| *s != 0).collect(),
 
         _ => states[4..].iter().map(|s| *s != 0).collect(),
     }

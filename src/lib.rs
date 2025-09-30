@@ -158,7 +158,7 @@ impl StreamDeck {
                 Ok(extract_str(&bytes[5..])?)
             }
 
-            Kind::MiniMk2 => {
+            Kind::MiniMk2 | Kind::MiniMk2Module => {
                 let bytes = get_feature_report(&self.device, 0x03, 32)?;
                 Ok(extract_str(&bytes[5..])?)
             }
@@ -176,6 +176,11 @@ impl StreamDeck {
         match self.kind {
             Kind::Original | Kind::Mini | Kind::MiniMk2 => {
                 let bytes = get_feature_report(&self.device, 0x04, 17)?;
+                Ok(extract_str(&bytes[5..])?)
+            }
+
+            Kind::MiniMk2Module => {
+                let bytes = get_feature_report(&self.device, 0xA1, 17)?;
                 Ok(extract_str(&bytes[5..])?)
             }
 
@@ -209,7 +214,7 @@ impl StreamDeck {
 
             _ => {
                 let data = match self.kind {
-                    Kind::Original | Kind::Mini | Kind::MiniMk2 => read_data(&self.device, 1 + self.kind.key_count() as usize, timeout),
+                    Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => read_data(&self.device, 1 + self.kind.key_count() as usize, timeout),
                     _ => read_data(&self.device, 4 + self.kind.key_count() as usize + self.kind.touchpoint_count() as usize, timeout),
                 }?;
 
@@ -225,7 +230,7 @@ impl StreamDeck {
     /// Resets the device
     pub fn reset(&self) -> Result<(), StreamDeckError> {
         match self.kind {
-            Kind::Original | Kind::Mini | Kind::MiniMk2 => {
+            Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => {
                 let mut buf = vec![0x0B, 0x63];
 
                 buf.extend(vec![0u8; 15]);
@@ -248,7 +253,7 @@ impl StreamDeck {
         let percent = percent.clamp(0, 100);
 
         match self.kind {
-            Kind::Original | Kind::Mini | Kind::MiniMk2 => {
+            Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => {
                 let mut buf = vec![0x05, 0x55, 0xaa, 0xd1, 0x01, percent];
 
                 buf.extend(vec![0u8; 11]);
@@ -283,7 +288,7 @@ impl StreamDeck {
             |page_number, this_length, last_package| match self.kind {
                 Kind::Original => vec![0x02, 0x01, (page_number + 1) as u8, 0, if last_package { 1 } else { 0 }, key + 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 
-                Kind::Mini | Kind::MiniMk2 => vec![0x02, 0x01, page_number as u8, 0, if last_package { 1 } else { 0 }, key + 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => vec![0x02, 0x01, page_number as u8, 0, if last_package { 1 } else { 0 }, key + 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 
                 _ => vec![
                     0x02,
@@ -524,7 +529,7 @@ impl WriteImageParameters {
         };
 
         let image_report_header_length = match kind {
-            Kind::Original | Kind::Mini | Kind::MiniMk2 => 16,
+            Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniMk2Module => 16,
             _ => 8,
         };
 
