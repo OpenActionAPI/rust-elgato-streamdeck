@@ -14,7 +14,7 @@ image = { version = "0.25", default-features = false, features = [
   "jpeg",
 ] }
 tokio = { version = "1", optional = true }
-strum = { version = "0.27", features = ["derive"] }
+strum = { version = "0.27", features = ["derive"], optional = true }
 
 [features]
 async = [
@@ -23,6 +23,7 @@ async = [
   "tokio/rt-multi-thread",
   "tokio/time"
 ]
+strum = ["dep:strum"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
