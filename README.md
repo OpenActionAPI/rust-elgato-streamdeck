@@ -1,4 +1,5 @@
 # elgato-streamdeck
+
 Rust library for interacting with Elgato Stream Deck hardware.
 Heavily based on [python-elgato-streamdeck](https://github.com/abcminiuser/python-elgato-streamdeck) and partially on
 [rust-streamdeck](https://github.com/ryankurte/rust-streamdeck).
@@ -6,22 +7,28 @@ Heavily based on [python-elgato-streamdeck](https://github.com/abcminiuser/pytho
 This library was made by [@TheJebForge](https://github.com/TheJebForge) as a better-designed alternative to rust-streamdeck, taking code from both of the libraries and making it more pleasant to use.
 
 ## udev rules for Linux
+
 If you're using systemd on your system, you might have to install udev rules to allow connecting to devices from userspace.
 
 You can do that by using the following command to copy this repo's included `40-streamdeck.rules` file into `udev/rules.d/`:
+
 ```shell
 cp 40-streamdeck.rules /etc/udev/rules.d/
 ```
+
 And then reloading udev rules:
+
 ```shell
 sudo udevadm control --reload-rules
 ```
+
 Unplugging and plugging back in the device should also help.
 
 You should also create a group called "plugdev" if it doesn't exist and add yourself to it, so you get access to the devices.
 You also need to restart the user session to let user group changes to kick in.
 
 ## Example
+
 ```rust
 use elgato_streamdeck::{new_hidapi, StreamDeck};
 
@@ -58,16 +65,20 @@ if device.updated {
 ```
 
 ## Status
+
 - [x] Convenient to use API for looking up devices, connecting to them and interacting with them
 - [x] Reading buttons with async
 
 ## Supported Devices
+
 As it stands, this library should support the following devices.
+
 - Stream Deck Original
 - Stream Deck Original V2
 - Stream Deck XL
 - Stream Deck XL V2
 - Stream Deck Mini
+- Stream Deck Mini Discord Edition
 - Stream Deck Mini Mk2
 - Stream Deck Mk2
 - Stream Deck Pedal
