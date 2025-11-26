@@ -68,8 +68,8 @@ As it stands, this library should support the following devices.
 - Stream Deck XL
 - Stream Deck XL V2
 - Stream Deck Mini
-- Stream Deck Mini Discord Edition
 - Stream Deck Mini Mk2
+- Stream Deck Mini Discord Edition
 - Stream Deck Mk2
 - Stream Deck Pedal
 - Stream Deck Plus (thanks to [node-elgato-stream-deck](https://github.com/Julusian/node-elgato-stream-deck))
