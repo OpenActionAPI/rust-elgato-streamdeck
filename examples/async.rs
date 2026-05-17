@@ -3,7 +3,7 @@ compile_error!("The `async` feature must be enabled to compile this example.");
 
 use std::time::Duration;
 use image::open;
-use elgato_streamdeck::info::{ImageFormat};
+use elgato_streamdeck::info::{ImageFormat, Kind};
 use elgato_streamdeck::{DeviceStateUpdate, list_devices, new_hidapi, AsyncStreamDeck};
 use elgato_streamdeck::images::{convert_image_with_format, ImageRect};
 use tokio::time::sleep;
@@ -27,6 +27,7 @@ async fn main() {
 
                 // Use image-rs to load an image
                 let image = open("examples/no-place-like-localhost.jpg").unwrap();
+                let imagepxl = open("examples/no-place-like-localhost+xl.jpg").unwrap();
                 let alternative = image.grayscale().brighten(-50);
 
                 println!("Key count: {}", kind.key_count());
@@ -39,23 +40,30 @@ async fn main() {
                 for i in 0..kind.touchpoint_count() {
                     device.set_touchpoint_color(i, 255, 255, 255).await.unwrap();
                 }
-
-                if let Some(format) = device.kind().lcd_image_format() {
-                    let scaled_image = image.clone().resize_to_fill(format.size.0 as u32, format.size.1 as u32, image::imageops::FilterType::Nearest);
-                    let converted_image = convert_image_with_format(format, scaled_image).unwrap();
-                    let _ = device.write_lcd_fill(&converted_image).await;
+                if device.kind() != Kind::PlusXl{
+                    if let Some(format) = device.kind().lcd_image_format() {
+                        let scaled_image = image.clone().resize_to_fill(format.size.0 as u32, format.size.1 as u32, image::imageops::FilterType::Nearest);
+                        let converted_image = convert_image_with_format(format, scaled_image).unwrap();
+                        let _ = device.write_lcd_fill(&converted_image).await;
+                    }
+                } else {
+                    if let Some(format) = device.kind().lcd_image_format() {
+                        let scaled_image = imagepxl.clone().resize_to_fill(format.size.0 as u32, format.size.1 as u32, image::imageops::FilterType::Nearest);
+                        let converted_image = convert_image_with_format(format, scaled_image).unwrap();
+                        let _ = device.write_lcd_fill(&converted_image).await;
+                    }
                 }
 
                 let small = match device.kind().lcd_strip_size() {
                     Some((w, h)) => {
                         let min = w.min(h) as u32;
-                        let scaled_image = image.clone().resize_to_fill(min, min, image::imageops::Nearest);
+                        let scaled_image=image.clone().resize_to_fill(min, min, image::imageops::Nearest);
                         let converted_image = convert_image_with_format(ImageFormat {
                             mode: device.kind().lcd_image_format().unwrap().mode,
                             size: (min.try_into().unwrap(), min.try_into().unwrap()),
                             rotation: device.kind().lcd_image_format().unwrap().rotation,
                             mirror: device.kind().lcd_image_format().unwrap().mirror,
-                            }, scaled_image).unwrap();
+                        }, scaled_image).unwrap();
                         Some(ImageRect::from_image(image::load_from_memory(&converted_image).unwrap()).unwrap())
                     }
                     None => None,
