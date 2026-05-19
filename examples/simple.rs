@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use image::open;
 
-use elgato_streamdeck::info::{Kind};
+use elgato_streamdeck::info::{ImageFormat, Kind};
 use elgato_streamdeck::{DeviceStateUpdate, list_devices, new_hidapi, StreamDeck};
 use elgato_streamdeck::images::{convert_image_with_format, ImageRect};
 
@@ -37,25 +37,25 @@ fn main() {
                     device.set_touchpoint_color(i, 255, 255, 255).unwrap();
                 }
 
-                if device.kind() != Kind::PlusXl {
-                    if let Some(format) = device.kind().lcd_image_format() {
-                        let scaled_image = image.clone().resize_to_fill(format.size.0 as u32, format.size.1 as u32, image::imageops::FilterType::Nearest);
-                        let converted_image = convert_image_with_format(format, scaled_image).unwrap();
-                        let _ = device.write_lcd_fill(&converted_image);
-                    }
-                } else {
-                    if let Some(format) = device.kind().lcd_image_format() {
-                        let scaled_image = imagepxl.clone().resize_to_fill(format.size.0 as u32, format.size.1 as u32, image::imageops::FilterType::Nearest);
-                        let converted_image = convert_image_with_format(format, scaled_image).unwrap();
-                        let _ = device.write_lcd_fill(&converted_image);
-                    }
+                if let Some(format) = device.kind().lcd_image_format() {
+                    let converted_image = convert_image_with_format(format, image.clone()).unwrap();
+                    let _ = device.write_lcd_fill(&converted_image);
                 }
 
                 let small = match device.kind().lcd_strip_size() {
                     Some((w, h)) => {
                         let min = w.min(h) as u32;
-                        let scaled_image = image.clone().resize_to_fill(min, min, image::imageops::Nearest);
-                        Some(ImageRect::from_image(scaled_image).unwrap())
+                        let converted_image = convert_image_with_format(
+                            ImageFormat {
+                                mode: device.kind().lcd_image_format().unwrap().mode,
+                                size: (min.try_into().unwrap(), min.try_into().unwrap()),
+                                rotation: device.kind().lcd_image_format().unwrap().rotation,
+                                mirror: device.kind().lcd_image_format().unwrap().mirror,
+                            },
+                            image.clone(),
+                        )
+                        .unwrap();
+                        Some(ImageRect::from_image(image::load_from_memory(&converted_image).unwrap()).unwrap())
                     }
                     None => None,
                 };
