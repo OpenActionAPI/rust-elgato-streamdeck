@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use image::open;
 
-use elgato_streamdeck::info::{ImageFormat, Kind};
+use elgato_streamdeck::info::{ImageFormat};
 use elgato_streamdeck::{DeviceStateUpdate, list_devices, new_hidapi, StreamDeck};
 use elgato_streamdeck::images::{convert_image_with_format, ImageRect};
 
@@ -24,7 +24,6 @@ fn main() {
                 device.clear_all_button_images().unwrap();
                 // Use image-rs to load an image
                 let image = open("examples/no-place-like-localhost.jpg").unwrap();
-                let imagepxl = open("examples/no-place-like-localhost+xl.jpg").unwrap();
 
                 println!("Key count: {}", kind.key_count());
                 // Write it to the device
