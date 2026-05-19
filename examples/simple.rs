@@ -37,7 +37,7 @@ fn main() {
                     device.set_touchpoint_color(i, 255, 255, 255).unwrap();
                 }
 
-                if device.kind() != Kind::PlusXl{
+                if device.kind() != Kind::PlusXl {
                     if let Some(format) = device.kind().lcd_image_format() {
                         let scaled_image = image.clone().resize_to_fill(format.size.0 as u32, format.size.1 as u32, image::imageops::FilterType::Nearest);
                         let converted_image = convert_image_with_format(format, scaled_image).unwrap();

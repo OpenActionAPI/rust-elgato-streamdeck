@@ -40,7 +40,7 @@ async fn main() {
                 for i in 0..kind.touchpoint_count() {
                     device.set_touchpoint_color(i, 255, 255, 255).await.unwrap();
                 }
-                if device.kind() != Kind::PlusXl{
+                if device.kind() != Kind::PlusXl {
                     if let Some(format) = device.kind().lcd_image_format() {
                         let scaled_image = image.clone().resize_to_fill(format.size.0 as u32, format.size.1 as u32, image::imageops::FilterType::Nearest);
                         let converted_image = convert_image_with_format(format, scaled_image).unwrap();
@@ -57,13 +57,17 @@ async fn main() {
                 let small = match device.kind().lcd_strip_size() {
                     Some((w, h)) => {
                         let min = w.min(h) as u32;
-                        let scaled_image=image.clone().resize_to_fill(min, min, image::imageops::Nearest);
-                        let converted_image = convert_image_with_format(ImageFormat {
-                            mode: device.kind().lcd_image_format().unwrap().mode,
-                            size: (min.try_into().unwrap(), min.try_into().unwrap()),
-                            rotation: device.kind().lcd_image_format().unwrap().rotation,
-                            mirror: device.kind().lcd_image_format().unwrap().mirror,
-                        }, scaled_image).unwrap();
+                        let scaled_image = image.clone().resize_to_fill(min, min, image::imageops::Nearest);
+                        let converted_image = convert_image_with_format(
+                            ImageFormat {
+                                mode: device.kind().lcd_image_format().unwrap().mode,
+                                size: (min.try_into().unwrap(), min.try_into().unwrap()),
+                                rotation: device.kind().lcd_image_format().unwrap().rotation,
+                                mirror: device.kind().lcd_image_format().unwrap().mirror,
+                            },
+                            scaled_image,
+                        )
+                        .unwrap();
                         Some(ImageRect::from_image(image::load_from_memory(&converted_image).unwrap()).unwrap())
                     }
                     None => None,
