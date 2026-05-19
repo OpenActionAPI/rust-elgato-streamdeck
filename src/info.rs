@@ -262,12 +262,14 @@ impl Kind {
                 rotation: ImageRotation::Rot0,
                 mirror: ImageMirroring::None,
             },
+
             Kind::PlusXl => ImageFormat {
                 mode: ImageMode::JPEG,
                 size: (120, 120),
                 rotation: ImageRotation::Rot270,
                 mirror: ImageMirroring::None,
             },
+
             Kind::Pedal => ImageFormat::default(),
         }
     }

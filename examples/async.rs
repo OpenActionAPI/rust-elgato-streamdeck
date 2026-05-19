@@ -3,6 +3,7 @@ compile_error!("The `async` feature must be enabled to compile this example.");
 
 use std::time::Duration;
 use image::open;
+
 use elgato_streamdeck::info::{ImageFormat};
 use elgato_streamdeck::{DeviceStateUpdate, list_devices, new_hidapi, AsyncStreamDeck};
 use elgato_streamdeck::images::{convert_image_with_format, ImageRect};
