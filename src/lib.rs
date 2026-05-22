@@ -194,8 +194,8 @@ impl StreamDeck {
     /// Reads all possible input from Stream Deck device
     pub fn read_input(&self, timeout: Option<Duration>) -> Result<StreamDeckInput, StreamDeckError> {
         match &self.kind {
-            Kind::Plus => {
-                let data = read_data(&self.device, 14.max(5 + self.kind.encoder_count() as usize), timeout)?;
+            Kind::Plus | Kind::PlusXl => {
+                let data = read_data(&self.device, (6 + self.kind.key_count()).max(5 + self.kind.encoder_count()) as usize, timeout)?;
 
                 if data[0] == 0 {
                     return Ok(StreamDeckInput::NoData);
@@ -319,7 +319,7 @@ impl StreamDeck {
     /// Only Stream Deck Plus supports writing LCD regions, for Stream Deck Neo use write_lcd_fill
     pub fn write_lcd(&self, x: u16, y: u16, rect: &ImageRect) -> Result<(), StreamDeckError> {
         match self.kind {
-            Kind::Plus => (),
+            Kind::Plus | Kind::PlusXl => (),
             _ => return Err(StreamDeckError::UnsupportedOperation),
         }
 
@@ -382,7 +382,7 @@ impl StreamDeck {
                 },
             ),
 
-            Kind::Plus => {
+            Kind::Plus | Kind::PlusXl => {
                 let (w, h) = self.kind.lcd_strip_size().unwrap();
 
                 self.write_image_data_reports(

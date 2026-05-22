@@ -28,6 +28,8 @@ pub const PID_STREAMDECK_NEO: u16 = 0x009a;
 pub const PID_STREAMDECK_PEDAL: u16 = 0x0086;
 /// Product ID of Stream Deck Plus
 pub const PID_STREAMDECK_PLUS: u16 = 0x0084;
+/// Product ID of Stream Deck Plus XL
+pub const PID_STREAMDECK_PLUS_XL: u16 = 0x00c6;
 /// Product ID of Stream Deck Mini Mk2 Module
 pub const PID_STREAMDECK_MINI_MK2_MODULE: u16 = 0x00b8;
 /// Product ID of Stream Deck Mk2 Module
@@ -70,6 +72,8 @@ pub enum Kind {
     Pedal,
     /// Stream Deck Plus
     Plus,
+    /// Stream Deck Plus XL
+    PlusXl,
     /// Stream Deck Mini Mk2 Module
     MiniMk2Module,
     /// Stream Deck Mk2 Module
@@ -95,6 +99,7 @@ impl Kind {
                 PID_STREAMDECK_NEO => Some(Kind::Neo),
                 PID_STREAMDECK_PEDAL => Some(Kind::Pedal),
                 PID_STREAMDECK_PLUS => Some(Kind::Plus),
+                PID_STREAMDECK_PLUS_XL => Some(Kind::PlusXl),
                 PID_STREAMDECK_MINI_MK2_MODULE => Some(Kind::MiniMk2Module),
                 PID_STREAMDECK_MK2_MODULE => Some(Kind::Mk2Module),
                 PID_STREAMDECK_XL_V2_MODULE => Some(Kind::XlV2Module),
@@ -119,6 +124,7 @@ impl Kind {
             Kind::Neo => PID_STREAMDECK_NEO,
             Kind::Pedal => PID_STREAMDECK_PEDAL,
             Kind::Plus => PID_STREAMDECK_PLUS,
+            Kind::PlusXl => PID_STREAMDECK_PLUS_XL,
             Kind::MiniMk2Module => PID_STREAMDECK_MINI_MK2_MODULE,
             Kind::Mk2Module => PID_STREAMDECK_MK2_MODULE,
             Kind::XlV2Module => PID_STREAMDECK_XL_V2_MODULE,
@@ -140,6 +146,7 @@ impl Kind {
             Kind::Neo => ELGATO_VENDOR_ID,
             Kind::Pedal => ELGATO_VENDOR_ID,
             Kind::Plus => ELGATO_VENDOR_ID,
+            Kind::PlusXl => ELGATO_VENDOR_ID,
             Kind::MiniMk2Module => ELGATO_VENDOR_ID,
             Kind::Mk2Module => ELGATO_VENDOR_ID,
             Kind::XlV2Module => ELGATO_VENDOR_ID,
@@ -152,6 +159,7 @@ impl Kind {
             Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => 15,
             Kind::Mini | Kind::MiniMk2 | Kind::MiniDiscord | Kind::MiniMk2Module => 6,
             Kind::Xl | Kind::XlV2 | Kind::XlV2Module => 32,
+            Kind::PlusXl => 36,
             Kind::Pedal => 3,
             Kind::Neo | Kind::Plus => 8,
         }
@@ -162,7 +170,7 @@ impl Kind {
         match self {
             Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => 3,
             Kind::Mini | Kind::MiniMk2 | Kind::MiniDiscord | Kind::MiniMk2Module => 2,
-            Kind::Xl | Kind::XlV2 | Kind::XlV2Module => 4,
+            Kind::Xl | Kind::XlV2 | Kind::XlV2Module | Kind::PlusXl => 4,
             Kind::Pedal => 1,
             Kind::Neo | Kind::Plus => 2,
         }
@@ -174,6 +182,7 @@ impl Kind {
             Kind::Original | Kind::OriginalV2 | Kind::Mk2 | Kind::Mk2Scissor | Kind::Mk2Module => 5,
             Kind::Mini | Kind::MiniMk2 | Kind::MiniDiscord | Kind::MiniMk2Module => 3,
             Kind::Xl | Kind::XlV2 | Kind::XlV2Module => 8,
+            Kind::PlusXl => 9,
             Kind::Pedal => 3,
             Kind::Neo | Kind::Plus => 4,
         }
@@ -183,6 +192,7 @@ impl Kind {
     pub fn encoder_count(&self) -> u8 {
         match self {
             Kind::Plus => 4,
+            Kind::PlusXl => 6,
             _ => 0,
         }
     }
@@ -199,6 +209,7 @@ impl Kind {
     pub fn lcd_strip_size(&self) -> Option<(usize, usize)> {
         match self {
             Kind::Plus => Some((800, 100)),
+            Kind::PlusXl => Some((100, 1200)),
             Kind::Neo => Some((248, 58)),
             _ => None,
         }
@@ -252,6 +263,13 @@ impl Kind {
                 mirror: ImageMirroring::None,
             },
 
+            Kind::PlusXl => ImageFormat {
+                mode: ImageMode::JPEG,
+                size: (120, 120),
+                rotation: ImageRotation::Rot270,
+                mirror: ImageMirroring::None,
+            },
+
             Kind::Pedal => ImageFormat::default(),
         }
     }
@@ -269,6 +287,12 @@ impl Kind {
                 mode: ImageMode::JPEG,
                 size: (800, 100),
                 rotation: ImageRotation::Rot0,
+                mirror: ImageMirroring::None,
+            }),
+            Kind::PlusXl => Some(ImageFormat {
+                mode: ImageMode::JPEG,
+                size: (100, 1200),
+                rotation: ImageRotation::Rot270,
                 mirror: ImageMirroring::None,
             }),
             _ => None,
@@ -348,7 +372,7 @@ impl Kind {
                 0x28, 0xa0, 0x02, 0x8a, 0x28, 0xa0, 0x02, 0x8a, 0x28, 0xa0, 0x02, 0x8a, 0x28, 0xa0, 0x02, 0x8a, 0x28, 0xa0, 0x0f, 0xff, 0xd9,
             ],
 
-            Kind::Plus => vec![
+            Kind::Plus | Kind::PlusXl => vec![
                 0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x02, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x78, 0x00, 0x78, 0x03,
                 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xdb, 0x00, 0x43, 0x00, 0x03, 0x02, 0x02, 0x03, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03, 0x04, 0x03, 0x03, 0x04, 0x05, 0x08,
                 0x05, 0x05, 0x04, 0x04, 0x05, 0x0a, 0x07, 0x07, 0x06, 0x08, 0x0c, 0x0a, 0x0c, 0x0c, 0x0b, 0x0a, 0x0b, 0x0b, 0x0d, 0x0e, 0x12, 0x10, 0x0d, 0x0e, 0x11, 0x0e, 0x0b, 0x0b, 0x10, 0x16,

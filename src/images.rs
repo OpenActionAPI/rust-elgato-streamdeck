@@ -18,8 +18,6 @@ pub fn convert_image_with_format(image_format: ImageFormat, image: DynamicImage)
     // Ensuring size of the image
     let (ws, hs) = image_format.size;
 
-    let image = image.resize_exact(ws as u32, hs as u32, FilterType::Nearest);
-
     // Applying rotation
     let image = match image_format.rotation {
         ImageRotation::Rot0 => image,
@@ -27,6 +25,8 @@ pub fn convert_image_with_format(image_format: ImageFormat, image: DynamicImage)
         ImageRotation::Rot180 => image.rotate180(),
         ImageRotation::Rot270 => image.rotate270(),
     };
+
+    let image = image.resize_exact(ws as u32, hs as u32, FilterType::Nearest);
 
     // Applying mirroring
     let image = match image_format.mirror {
