@@ -195,7 +195,7 @@ impl StreamDeck {
     pub fn read_input(&self, timeout: Option<Duration>) -> Result<StreamDeckInput, StreamDeckError> {
         match &self.kind {
             Kind::Plus | Kind::PlusXl => {
-                let data = read_data(&self.device, 6 + self.kind.key_count().max(5 + self.kind.encoder_count()) as usize, timeout)?;
+                let data = read_data(&self.device, (6 + self.kind.key_count()).max(5 + self.kind.encoder_count()) as usize, timeout)?;
 
                 if data[0] == 0 {
                     return Ok(StreamDeckInput::NoData);

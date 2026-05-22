@@ -28,7 +28,7 @@ pub const PID_STREAMDECK_NEO: u16 = 0x009a;
 pub const PID_STREAMDECK_PEDAL: u16 = 0x0086;
 /// Product ID of Stream Deck Plus
 pub const PID_STREAMDECK_PLUS: u16 = 0x0084;
-/// Product ID of Stream Deck + XL
+/// Product ID of Stream Deck Plus XL
 pub const PID_STREAMDECK_PLUS_XL: u16 = 0x00c6;
 /// Product ID of Stream Deck Mini Mk2 Module
 pub const PID_STREAMDECK_MINI_MK2_MODULE: u16 = 0x00b8;
@@ -72,7 +72,7 @@ pub enum Kind {
     Pedal,
     /// Stream Deck Plus
     Plus,
-    /// Stream Deck + XL
+    /// Stream Deck Plus XL
     PlusXl,
     /// Stream Deck Mini Mk2 Module
     MiniMk2Module,

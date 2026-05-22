@@ -73,7 +73,7 @@ As it stands, this library should support the following devices.
 - Stream Deck Mk2
 - Stream Deck Pedal
 - Stream Deck Plus (thanks to [node-elgato-stream-deck](https://github.com/Julusian/node-elgato-stream-deck))
-- Stream Deck Plus XL
+- Stream Deck Plus XL (thanks to [@Jerry260102](https://github.com/Jerry260102))
 - Stream Deck Neo (thanks to [@ejiektpobehuk](https://github.com/ejiektpobehuk), [@AkechiShiro](https://github.com/AkechiShiro) and [node-elgato-stream-deck](https://github.com/Julusian/node-elgato-stream-deck))
 
 Support for non-Elgato (Mirabox/Ajazz) devices has been removed in v0.11. If you wish to use these devices, please use the `mirajazz` crate, or use v0.10.2 of this crate.
