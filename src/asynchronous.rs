@@ -48,6 +48,16 @@ impl AsyncStreamDeck {
     }
 }
 
+impl From<StreamDeck> for AsyncStreamDeck {
+    /// Wraps an already-opened [StreamDeck], allowing the caller to control which thread performs the HID open
+    fn from(device: StreamDeck) -> AsyncStreamDeck {
+        AsyncStreamDeck {
+            kind: device.kind(),
+            device: Arc::new(Mutex::new(device)),
+        }
+    }
+}
+
 /// Instance methods of the struct
 impl AsyncStreamDeck {
     /// Returns kind of the Stream Deck
