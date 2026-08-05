@@ -26,7 +26,16 @@ pub fn convert_image_with_format(image_format: ImageFormat, image: DynamicImage)
         ImageRotation::Rot270 => image.rotate270(),
     };
 
-    let image = image.resize_exact(ws as u32, hs as u32, FilterType::Nearest);
+    // Nearest-neighbour discards the antialiasing of whatever the caller drew. At the
+    // Stream Deck +'s 6:5 ratio (144 -> 120) it drops every sixth row and column and
+    // point-samples soft edges into stair-steps. Key images are at most 200x200, so a
+    // proper filter is not worth optimising away; skipping the resample entirely when
+    // the image is already the right size is, since that is the common case.
+    let image = if image.dimensions() == (ws as u32, hs as u32) {
+        image
+    } else {
+        image.resize_exact(ws as u32, hs as u32, FilterType::Lanczos3)
+    };
 
     // Applying mirroring
     let image = match image_format.mirror {
