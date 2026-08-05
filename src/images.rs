@@ -28,9 +28,12 @@ pub fn convert_image_with_format(image_format: ImageFormat, image: DynamicImage)
 
     // Nearest-neighbour discards the antialiasing of whatever the caller drew. At the
     // Stream Deck +'s 6:5 ratio (144 -> 120) it drops every sixth row and column and
-    // point-samples soft edges into stair-steps. Key images are at most 200x200, so a
-    // proper filter is not worth optimising away; skipping the resample entirely when
-    // the image is already the right size is, since that is the common case.
+    // point-samples soft edges into stair-steps.
+    //
+    // Cost scales with the source area, which is up to the caller, so skip the resample
+    // altogether when the image already matches the format. That is both the common case
+    // and the escape hatch: a caller that scales to the target size itself pays nothing
+    // here, rather than paying for a resample to get its own pixels back.
     let image = if image.dimensions() == (ws as u32, hs as u32) {
         image
     } else {
