@@ -123,8 +123,8 @@ impl AsyncStreamDeck {
         block_in_place(move || device.write_image(key, image_data))
     }
 
-    /// Writes image data to Stream Deck device's lcd strip/screen as region.
-    /// Only Stream Deck Plus supports writing LCD regions, for Stream Deck Neo use write_lcd_fill
+    /// Writes image data to a region of a supported Stream Deck LCD strip/screen.
+    /// For Stream Deck Neo use [AsyncStreamDeck::write_lcd_fill].
     pub async fn write_lcd(&self, x: u16, y: u16, rect: &ImageRect) -> Result<(), StreamDeckError> {
         let device = self.device.lock().await;
         block_in_place(move || device.write_lcd(x, y, rect))
@@ -170,6 +170,18 @@ impl AsyncStreamDeck {
     pub async fn set_touchpoint_color(&self, point: u8, red: u8, green: u8, blue: u8) -> Result<(), StreamDeckError> {
         let device = self.device.lock().await;
         block_in_place(move || device.set_touchpoint_color(point, red, green, blue))
+    }
+
+    /// Sets every RGB LED around an encoder to the same color
+    pub async fn set_encoder_ring_color(&self, encoder: u8, red: u8, green: u8, blue: u8) -> Result<(), StreamDeckError> {
+        let device = self.device.lock().await;
+        block_in_place(move || device.set_encoder_ring_color(encoder, red, green, blue))
+    }
+
+    /// Sets the RGB LEDs around an encoder, starting at the top and proceeding clockwise
+    pub async fn set_encoder_ring_colors(&self, encoder: u8, colors: &[(u8, u8, u8)]) -> Result<(), StreamDeckError> {
+        let device = self.device.lock().await;
+        block_in_place(move || device.set_encoder_ring_colors(encoder, colors))
     }
 
     /// Flushes the button's image to the device

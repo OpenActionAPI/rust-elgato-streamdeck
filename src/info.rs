@@ -3,6 +3,8 @@ use strum::{Display, EnumIter, EnumString};
 
 /// HIDAPI Vendor ID that Elgato products use
 pub const ELGATO_VENDOR_ID: u16 = 0x0fd9;
+/// HIDAPI Vendor ID that Corsair products use
+pub const CORSAIR_VENDOR_ID: u16 = 0x1b1c;
 
 /// Product ID of first revision of original Stream Deck
 pub const PID_STREAMDECK_ORIGINAL: u16 = 0x0060;
@@ -36,8 +38,10 @@ pub const PID_STREAMDECK_MINI_MK2_MODULE: u16 = 0x00b8;
 pub const PID_STREAMDECK_MK2_MODULE: u16 = 0x00b9;
 /// Product ID of second revision of Stream Deck XL Module
 pub const PID_STREAMDECK_XL_V2_MODULE: u16 = 0x00ba;
+/// Product ID of the Stream Deck component in the Corsair Galleon 100 SD
+pub const PID_GALLEON_100_SD: u16 = 0x2b18;
 
-const RECOGNIZED_VENDORS: [u16; 1] = [ELGATO_VENDOR_ID];
+const RECOGNIZED_VENDORS: [u16; 2] = [ELGATO_VENDOR_ID, CORSAIR_VENDOR_ID];
 
 /// Returns true for vendors IDs that are recognized by the library
 pub fn is_vendor_familiar(vendor: &u16) -> bool {
@@ -80,6 +84,8 @@ pub enum Kind {
     Mk2Module,
     /// Stream Deck XL Module
     XlV2Module,
+    /// Stream Deck integrated into the Corsair Galleon 100 SD
+    Galleon100Sd,
 }
 
 impl Kind {
@@ -105,6 +111,10 @@ impl Kind {
                 PID_STREAMDECK_XL_V2_MODULE => Some(Kind::XlV2Module),
                 _ => None,
             },
+            CORSAIR_VENDOR_ID => match pid {
+                PID_GALLEON_100_SD => Some(Kind::Galleon100Sd),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -128,6 +138,7 @@ impl Kind {
             Kind::MiniMk2Module => PID_STREAMDECK_MINI_MK2_MODULE,
             Kind::Mk2Module => PID_STREAMDECK_MK2_MODULE,
             Kind::XlV2Module => PID_STREAMDECK_XL_V2_MODULE,
+            Kind::Galleon100Sd => PID_GALLEON_100_SD,
         }
     }
 
@@ -150,6 +161,7 @@ impl Kind {
             Kind::MiniMk2Module => ELGATO_VENDOR_ID,
             Kind::Mk2Module => ELGATO_VENDOR_ID,
             Kind::XlV2Module => ELGATO_VENDOR_ID,
+            Kind::Galleon100Sd => CORSAIR_VENDOR_ID,
         }
     }
 
@@ -162,6 +174,7 @@ impl Kind {
             Kind::PlusXl => 36,
             Kind::Pedal => 3,
             Kind::Neo | Kind::Plus => 8,
+            Kind::Galleon100Sd => 12,
         }
     }
 
@@ -173,6 +186,7 @@ impl Kind {
             Kind::Xl | Kind::XlV2 | Kind::XlV2Module | Kind::PlusXl => 4,
             Kind::Pedal => 1,
             Kind::Neo | Kind::Plus => 2,
+            Kind::Galleon100Sd => 4,
         }
     }
 
@@ -185,6 +199,7 @@ impl Kind {
             Kind::PlusXl => 9,
             Kind::Pedal => 3,
             Kind::Neo | Kind::Plus => 4,
+            Kind::Galleon100Sd => 3,
         }
     }
 
@@ -193,6 +208,15 @@ impl Kind {
         match self {
             Kind::Plus => 4,
             Kind::PlusXl => 6,
+            Kind::Galleon100Sd => 2,
+            _ => 0,
+        }
+    }
+
+    /// Amount of individually addressable RGB LEDs around each encoder
+    pub fn encoder_led_count(&self) -> u8 {
+        match self {
+            Kind::Galleon100Sd => 4,
             _ => 0,
         }
     }
@@ -211,6 +235,7 @@ impl Kind {
             Kind::Plus => Some((800, 100)),
             Kind::PlusXl => Some((100, 1200)),
             Kind::Neo => Some((248, 58)),
+            Kind::Galleon100Sd => Some((720, 384)),
             _ => None,
         }
     }
@@ -270,6 +295,13 @@ impl Kind {
                 mirror: ImageMirroring::None,
             },
 
+            Kind::Galleon100Sd => ImageFormat {
+                mode: ImageMode::JPEG,
+                size: (160, 160),
+                rotation: ImageRotation::Rot0,
+                mirror: ImageMirroring::None,
+            },
+
             Kind::Pedal => ImageFormat::default(),
         }
     }
@@ -293,6 +325,12 @@ impl Kind {
                 mode: ImageMode::JPEG,
                 size: (100, 1200),
                 rotation: ImageRotation::Rot270,
+                mirror: ImageMirroring::None,
+            }),
+            Kind::Galleon100Sd => Some(ImageFormat {
+                mode: ImageMode::JPEG,
+                size: (720, 384),
+                rotation: ImageRotation::Rot0,
                 mirror: ImageMirroring::None,
             }),
             _ => None,
@@ -410,8 +448,37 @@ impl Kind {
                 0xd9,
             ],
 
+            Kind::Galleon100Sd => crate::images::convert_image_with_format(self.key_image_format(), image::DynamicImage::new_rgb8(160, 160)).expect("encoding an in-memory blank JPEG should not fail"),
+
             Kind::Pedal => vec![],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn galleon_100_sd_metadata() {
+        let kind = Kind::from_vid_pid(CORSAIR_VENDOR_ID, PID_GALLEON_100_SD).unwrap();
+
+        assert_eq!(kind, Kind::Galleon100Sd);
+        assert_eq!(kind.vendor_id(), CORSAIR_VENDOR_ID);
+        assert_eq!(kind.product_id(), PID_GALLEON_100_SD);
+        assert_eq!(kind.key_layout(), (4, 3));
+        assert_eq!(kind.key_count(), 12);
+        assert_eq!(kind.encoder_count(), 2);
+        assert_eq!(kind.encoder_led_count(), 4);
+        assert_eq!(kind.lcd_strip_size(), Some((720, 384)));
+        assert_eq!(kind.key_image_format().size, (160, 160));
+        assert_eq!(kind.lcd_image_format().unwrap().size, (720, 384));
+    }
+
+    #[test]
+    fn corsair_vendor_only_recognizes_the_galleon_stream_deck_component() {
+        assert!(is_vendor_familiar(&CORSAIR_VENDOR_ID));
+        assert_eq!(Kind::from_vid_pid(CORSAIR_VENDOR_ID, 0x2b0c), None);
     }
 }
 

@@ -14,7 +14,7 @@ use std::iter::zip;
 use std::str::Utf8Error;
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::images::{convert_image, ImageRect};
 use hidapi::{HidApi, HidDevice, HidError, HidResult};
@@ -22,6 +22,11 @@ use image::{DynamicImage, ImageError};
 
 use crate::info::{is_vendor_familiar, Kind};
 use crate::util::{extract_str, flip_key_index, get_feature_report, read_button_states, read_data, read_encoder_input, read_lcd_input, send_feature_report, write_data};
+
+const GALLEON_CONTROL_INTERFACE: i32 = 0;
+const GALLEON_KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(500);
+const GALLEON_READ_INTERVAL: Duration = Duration::from_millis(100);
+const GALLEON_FEATURE_REPORT_LENGTH: usize = 32;
 
 /// Various information about Stream Deck devices
 pub mod info;
@@ -61,11 +66,12 @@ pub fn list_devices(hidapi: &HidApi) -> Vec<(Kind, String)> {
                 return None;
             }
 
-            if let Some(serial) = d.serial_number() {
-                Some((Kind::from_vid_pid(d.vendor_id(), d.product_id())?, serial.to_string()))
-            } else {
-                None
+            let kind = Kind::from_vid_pid(d.vendor_id(), d.product_id())?;
+            if !is_control_interface(kind, d.interface_number()) {
+                return None;
             }
+
+            d.serial_number().map(|serial| (kind, serial.to_string()))
         })
         .collect::<HashSet<_>>()
         .into_iter()
@@ -112,6 +118,8 @@ pub struct StreamDeck {
     device: HidDevice,
     /// Temporarily cache the image before sending it to the device
     image_cache: RwLock<Vec<ImageCache>>,
+    /// Last time software mode was refreshed for devices that require a keep-alive
+    last_keep_alive: Mutex<Option<Instant>>,
 }
 
 struct ImageCache {
@@ -123,13 +131,30 @@ struct ImageCache {
 impl StreamDeck {
     /// Attempts to connect to the device
     pub fn connect(hidapi: &HidApi, kind: Kind, serial: &str) -> Result<StreamDeck, StreamDeckError> {
-        let device = hidapi.open_serial(kind.vendor_id(), kind.product_id(), serial)?;
+        let device = if kind == Kind::Galleon100Sd {
+            hidapi
+                .device_list()
+                .find(|device| {
+                    device.vendor_id() == kind.vendor_id()
+                        && device.product_id() == kind.product_id()
+                        && device.serial_number() == Some(serial)
+                        && is_control_interface(kind, device.interface_number())
+                })
+                .ok_or(StreamDeckError::DeviceNotFound)?
+                .open_device(hidapi)?
+        } else {
+            hidapi.open_serial(kind.vendor_id(), kind.product_id(), serial)?
+        };
 
-        Ok(StreamDeck {
+        let stream_deck = StreamDeck {
             kind,
             device,
             image_cache: RwLock::new(vec![]),
-        })
+            last_keep_alive: Mutex::new(None),
+        };
+        stream_deck.refresh_software_mode(true)?;
+
+        Ok(stream_deck)
     }
 }
 
@@ -194,8 +219,13 @@ impl StreamDeck {
     /// Reads all possible input from Stream Deck device
     pub fn read_input(&self, timeout: Option<Duration>) -> Result<StreamDeckInput, StreamDeckError> {
         match &self.kind {
-            Kind::Plus | Kind::PlusXl => {
-                let data = read_data(&self.device, (6 + self.kind.key_count()).max(5 + self.kind.encoder_count()) as usize, timeout)?;
+            Kind::Plus | Kind::PlusXl | Kind::Galleon100Sd => {
+                let length = (6 + self.kind.key_count()).max(5 + self.kind.encoder_count()) as usize;
+                let data = if self.kind == Kind::Galleon100Sd {
+                    self.read_galleon_input(length, timeout)?
+                } else {
+                    read_data(&self.device, length, timeout)?
+                };
 
                 if data[0] == 0 {
                     return Ok(StreamDeckInput::NoData);
@@ -235,7 +265,7 @@ impl StreamDeck {
 
                 buf.extend(vec![0u8; 15]);
 
-                Ok(send_feature_report(&self.device, buf.as_slice())?)
+                send_feature_report(&self.device, buf.as_slice())?
             }
 
             _ => {
@@ -243,14 +273,21 @@ impl StreamDeck {
 
                 buf.extend(vec![0u8; 30]);
 
-                Ok(send_feature_report(&self.device, buf.as_slice())?)
+                send_feature_report(&self.device, buf.as_slice())?
             }
+        };
+
+        if self.kind == Kind::Galleon100Sd {
+            *self.last_keep_alive.lock()? = None;
         }
+
+        Ok(())
     }
 
     /// Sets brightness of the device, value range is 0 - 100
     pub fn set_brightness(&self, percent: u8) -> Result<(), StreamDeckError> {
         let percent = percent.clamp(0, 100);
+        self.refresh_software_mode(false)?;
 
         match self.kind {
             Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniDiscord | Kind::MiniMk2Module => {
@@ -281,6 +318,8 @@ impl StreamDeck {
         if !self.kind.is_visual() {
             return Err(StreamDeckError::NoScreen);
         }
+
+        self.refresh_software_mode(false)?;
 
         self.write_image_data_reports(
             image_data,
@@ -315,13 +354,15 @@ impl StreamDeck {
         Ok(())
     }
 
-    /// Writes image data to Stream Deck device's lcd strip/screen as region.
-    /// Only Stream Deck Plus supports writing LCD regions, for Stream Deck Neo use write_lcd_fill
+    /// Writes image data to a region of a supported Stream Deck LCD strip/screen.
+    /// For Stream Deck Neo use [StreamDeck::write_lcd_fill].
     pub fn write_lcd(&self, x: u16, y: u16, rect: &ImageRect) -> Result<(), StreamDeckError> {
         match self.kind {
-            Kind::Plus | Kind::PlusXl => (),
+            Kind::Plus | Kind::PlusXl | Kind::Galleon100Sd => (),
             _ => return Err(StreamDeckError::UnsupportedOperation),
         }
+
+        self.refresh_software_mode(false)?;
 
         self.write_image_data_reports(
             rect.data.as_slice(),
@@ -382,7 +423,8 @@ impl StreamDeck {
                 },
             ),
 
-            Kind::Plus | Kind::PlusXl => {
+            Kind::Plus | Kind::PlusXl | Kind::Galleon100Sd => {
+                self.refresh_software_mode(false)?;
                 let (w, h) = self.kind.lcd_strip_size().unwrap();
 
                 self.write_image_data_reports(
@@ -456,6 +498,38 @@ impl StreamDeck {
         Ok(send_feature_report(&self.device, buf.as_slice())?)
     }
 
+    /// Sets every RGB LED around an encoder to the same color
+    pub fn set_encoder_ring_color(&self, encoder: u8, red: u8, green: u8, blue: u8) -> Result<(), StreamDeckError> {
+        let colors = vec![(red, green, blue); self.kind.encoder_led_count() as usize];
+        self.set_encoder_ring_colors(encoder, &colors)
+    }
+
+    /// Sets the RGB LEDs around an encoder, starting at the top and proceeding clockwise
+    pub fn set_encoder_ring_colors(&self, encoder: u8, colors: &[(u8, u8, u8)]) -> Result<(), StreamDeckError> {
+        if encoder >= self.kind.encoder_count() {
+            return Err(StreamDeckError::InvalidEncoderIndex);
+        }
+
+        let led_count = self.kind.encoder_led_count() as usize;
+        if led_count == 0 {
+            return Err(StreamDeckError::UnsupportedOperation);
+        }
+        if colors.len() != led_count {
+            return Err(StreamDeckError::InvalidEncoderLedColorCount);
+        }
+
+        self.refresh_software_mode(false)?;
+        for hardware_segment in 0..led_count {
+            let logical_segment = galleon_encoder_logical_segment(encoder, hardware_segment as u8) as usize;
+            let (red, green, blue) = colors[logical_segment];
+            let led_index = galleon_encoder_led_index(encoder, hardware_segment as u8);
+            let buf = [0x03, 0x24, led_index, red, green, blue];
+            send_feature_report(&self.device, &buf)?;
+        }
+
+        Ok(())
+    }
+
     /// Flushes the button's image to the device
     pub fn flush(&self) -> Result<(), StreamDeckError> {
         if self.image_cache.read()?.is_empty() {
@@ -512,6 +586,92 @@ impl StreamDeck {
         }
 
         Ok(())
+    }
+
+    fn read_galleon_input(&self, length: usize, timeout: Option<Duration>) -> Result<Vec<u8>, StreamDeckError> {
+        self.refresh_software_mode(false)?;
+
+        let Some(timeout) = timeout else {
+            return Ok(read_data(&self.device, length, None)?);
+        };
+
+        let started = Instant::now();
+        loop {
+            self.refresh_software_mode(false)?;
+
+            let remaining = timeout.saturating_sub(started.elapsed());
+            let data = read_data(&self.device, length, Some(remaining.min(GALLEON_READ_INTERVAL)))?;
+            if data[0] != 0 || started.elapsed() >= timeout {
+                return Ok(data);
+            }
+        }
+    }
+
+    fn refresh_software_mode(&self, force: bool) -> Result<(), StreamDeckError> {
+        if self.kind != Kind::Galleon100Sd {
+            return Ok(());
+        }
+
+        let mut last_keep_alive = self.last_keep_alive.lock()?;
+        if force || last_keep_alive.is_none_or(|last| last.elapsed() >= GALLEON_KEEP_ALIVE_INTERVAL) {
+            send_feature_report(&self.device, &galleon_software_mode_report())?;
+            *last_keep_alive = Some(Instant::now());
+        }
+
+        Ok(())
+    }
+}
+
+fn is_control_interface(kind: Kind, interface_number: i32) -> bool {
+    kind != Kind::Galleon100Sd || interface_number == GALLEON_CONTROL_INTERFACE
+}
+
+fn galleon_software_mode_report() -> [u8; GALLEON_FEATURE_REPORT_LENGTH] {
+    let mut report = [0; GALLEON_FEATURE_REPORT_LENGTH];
+    report[0] = 0x03;
+    report[1] = 0x27;
+    report
+}
+
+fn galleon_encoder_logical_segment(encoder: u8, hardware_segment: u8) -> u8 {
+    const ROTATIONS: [u8; 2] = [3, 1];
+    (hardware_segment + ROTATIONS[encoder as usize]) % 4
+}
+
+fn galleon_encoder_led_index(encoder: u8, hardware_segment: u8) -> u8 {
+    (1 - encoder) * 4 + hardware_segment
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn galleon_uses_only_its_control_interface() {
+        assert!(is_control_interface(Kind::Galleon100Sd, 0));
+        assert!(!is_control_interface(Kind::Galleon100Sd, 1));
+        assert!(is_control_interface(Kind::Plus, 1));
+    }
+
+    #[test]
+    fn galleon_software_mode_report_matches_the_hardware_protocol() {
+        let report = galleon_software_mode_report();
+
+        assert_eq!(&report[..2], &[0x03, 0x27]);
+        assert!(report[2..].iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn galleon_encoder_led_mapping_matches_the_physical_rings() {
+        let left = (0..4)
+            .map(|segment| (galleon_encoder_led_index(0, segment), galleon_encoder_logical_segment(0, segment)))
+            .collect::<Vec<_>>();
+        let right = (0..4)
+            .map(|segment| (galleon_encoder_led_index(1, segment), galleon_encoder_logical_segment(1, segment)))
+            .collect::<Vec<_>>();
+
+        assert_eq!(left, vec![(4, 3), (5, 0), (6, 1), (7, 2)]);
+        assert_eq!(right, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
     }
 }
 
@@ -571,11 +731,20 @@ pub enum StreamDeckError {
     /// Key index is invalid
     InvalidKeyIndex,
 
-    /// Key index is invalid
+    /// Touch point index is invalid
     InvalidTouchPointIndex,
+
+    /// Encoder index is invalid
+    InvalidEncoderIndex,
+
+    /// Encoder LED color count does not match the hardware
+    InvalidEncoderLedColorCount,
 
     /// Unrecognized Product ID
     UnrecognizedPID,
+
+    /// Requested HID device or interface was not found
+    DeviceNotFound,
 
     /// The device doesn't support doing that
     UnsupportedOperation,
