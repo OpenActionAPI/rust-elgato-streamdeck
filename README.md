@@ -78,6 +78,7 @@ As it stands, this library should support the following devices.
 - Stream Deck Neo (thanks to [@ejiektpobehuk](https://github.com/ejiektpobehuk), [@AkechiShiro](https://github.com/AkechiShiro) and [node-elgato-stream-deck](https://github.com/Julusian/node-elgato-stream-deck))
 - Stream Deck Mini Mk2 Module (thanks to [@Jonathan-Adapt](https://github.com/Jonathan-Adapt))
 - Stream Deck Mk2 Module (thanks to [@Jonathan-Adapt](https://github.com/Jonathan-Adapt))
+- Stream Deck Mk2 with Scissor Keys Module (thanks to [@HuntingForVodka](https://github.com/HuntingForVodka))
 - Stream Deck XL V2 Module (thanks to [@Jonathan-Adapt](https://github.com/Jonathan-Adapt))
 
 Support for non-Elgato (Mirabox/Ajazz) devices has been removed in v0.11. If you wish to use these devices, please use the `mirajazz` crate, or use v0.10.2 of this crate.
