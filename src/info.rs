@@ -272,7 +272,7 @@ impl Kind {
 
             Kind::PlusXl => ImageFormat {
                 mode: ImageMode::JPEG,
-                size: (120, 120),
+                size: (112, 112),
                 rotation: ImageRotation::Rot270,
                 mirror: ImageMirroring::None,
             },
