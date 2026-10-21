@@ -24,6 +24,8 @@ async = [
   "tokio/time"
 ]
 strum = ["dep:strum"]
+# CORA TCP transport for the Stream Deck Network Dock
+tcp = []
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

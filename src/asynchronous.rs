@@ -46,6 +46,19 @@ impl AsyncStreamDeck {
             device: Arc::new(Mutex::new(device)),
         })
     }
+
+    /// Connects to a Stream Deck attached to a Network Dock over the CORA TCP protocol.
+    ///
+    /// `addr` is the dock's `host:port` (use [`transport::DEFAULT_TCP_PORT`](crate::transport::DEFAULT_TCP_PORT)
+    /// for the port). The attached device's [`Kind`] is auto-detected from its vendor/product id
+    /// (queried over CORA). Can be safely ran inside a
+    /// [multi_thread](tokio::runtime::Builder::new_multi_thread) runtime.
+    #[cfg(feature = "tcp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tcp")))]
+    pub fn connect_network<A: std::net::ToSocketAddrs>(addr: A) -> Result<AsyncStreamDeck, StreamDeckError> {
+        let device = block_in_place(move || StreamDeck::connect_network(addr))?;
+        Ok(device.into())
+    }
 }
 
 impl From<StreamDeck> for AsyncStreamDeck {

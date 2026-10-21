@@ -17,11 +17,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use crate::images::{convert_image, ImageRect};
-use hidapi::{HidApi, HidDevice, HidError, HidResult};
+use hidapi::{HidApi, HidError, HidResult};
 use image::{DynamicImage, ImageError};
 
 use crate::info::{is_vendor_familiar, Kind};
-use crate::util::{extract_str, flip_key_index, get_feature_report, read_button_states, read_data, read_encoder_input, read_lcd_input, send_feature_report, write_data};
+use crate::transport::{HidTransport, Transport};
+use crate::util::{flip_key_index, read_button_states, read_encoder_input, read_lcd_input};
 
 /// Various information about Stream Deck devices
 pub mod info;
@@ -29,6 +30,8 @@ pub mod info;
 pub mod util;
 /// Image processing functions
 pub mod images;
+/// Transport abstraction (USB HID and pluggable backends)
+pub mod transport;
 
 /// Async Stream Deck
 #[cfg(feature = "async")]
@@ -108,8 +111,8 @@ impl StreamDeckInput {
 pub struct StreamDeck {
     /// Kind of the device
     kind: Kind,
-    /// Connected HIDDevice
-    device: HidDevice,
+    /// Transport carrying report bytes to and from the device
+    transport: Box<dyn Transport>,
     /// Temporarily cache the image before sending it to the device
     image_cache: RwLock<Vec<ImageCache>>,
 }
@@ -121,15 +124,37 @@ struct ImageCache {
 
 /// Static functions of the struct
 impl StreamDeck {
-    /// Attempts to connect to the device
+    /// Attempts to connect to the device over USB HID
     pub fn connect(hidapi: &HidApi, kind: Kind, serial: &str) -> Result<StreamDeck, StreamDeckError> {
         let device = hidapi.open_serial(kind.vendor_id(), kind.product_id(), serial)?;
 
-        Ok(StreamDeck {
+        Ok(StreamDeck::from_transport(kind, Box::new(HidTransport::new(device))))
+    }
+
+    /// Builds a Stream Deck on top of an arbitrary [`Transport`].
+    ///
+    /// Use this to drive a device over a non-USB backend (e.g. the Network Dock's CORA TCP
+    /// protocol). The caller is responsible for supplying the correct [`Kind`] for the device
+    /// behind the transport; all per-`Kind` encoding is applied as usual.
+    pub fn from_transport(kind: Kind, transport: Box<dyn Transport>) -> StreamDeck {
+        StreamDeck {
             kind,
-            device,
+            transport,
             image_cache: RwLock::new(vec![]),
-        })
+        }
+    }
+
+    /// Connects to a Stream Deck attached to a Network Dock over the CORA TCP protocol.
+    ///
+    /// `addr` is the dock's `host:port` (use [`transport::DEFAULT_TCP_PORT`] for the port). The
+    /// attached device's [`Kind`] is auto-detected from its vendor/product id (queried over
+    /// CORA). To force a specific `Kind` instead, use [`StreamDeck::from_transport`].
+    #[cfg(feature = "tcp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tcp")))]
+    pub fn connect_network<A: std::net::ToSocketAddrs>(addr: A) -> Result<StreamDeck, StreamDeckError> {
+        let transport = transport::CoraTransport::connect(addr)?;
+        let kind = transport.detect_kind()?;
+        Ok(StreamDeck::from_transport(kind, Box::new(transport)))
     }
 }
 
@@ -142,60 +167,29 @@ impl StreamDeck {
 
     /// Returns manufacturer string of the device
     pub fn manufacturer(&self) -> Result<String, StreamDeckError> {
-        Ok(self.device.get_manufacturer_string()?.unwrap_or_else(|| "Unknown".to_string()))
+        self.transport.manufacturer()
     }
 
     /// Returns product string of the device
     pub fn product(&self) -> Result<String, StreamDeckError> {
-        Ok(self.device.get_product_string()?.unwrap_or_else(|| "Unknown".to_string()))
+        self.transport.product()
     }
 
     /// Returns serial number of the device
     pub fn serial_number(&self) -> Result<String, StreamDeckError> {
-        match self.kind {
-            Kind::Original | Kind::Mini => {
-                let bytes = get_feature_report(&self.device, 0x03, 17)?;
-                Ok(extract_str(&bytes[5..])?)
-            }
-
-            Kind::MiniMk2 | Kind::MiniDiscord | Kind::MiniMk2Module => {
-                let bytes = get_feature_report(&self.device, 0x03, 32)?;
-                Ok(extract_str(&bytes[5..])?)
-            }
-
-            _ => {
-                let bytes = get_feature_report(&self.device, 0x06, 32)?;
-                Ok(extract_str(&bytes[2..])?)
-            }
-        }
-        .map(|s| s.replace('\u{0001}', ""))
+        self.transport.serial_number(self.kind)
     }
 
     /// Returns firmware version of the StreamDeck
     pub fn firmware_version(&self) -> Result<String, StreamDeckError> {
-        match self.kind {
-            Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniDiscord => {
-                let bytes = get_feature_report(&self.device, 0x04, 17)?;
-                Ok(extract_str(&bytes[5..])?)
-            }
-
-            Kind::MiniMk2Module => {
-                let bytes = get_feature_report(&self.device, 0xA1, 17)?;
-                Ok(extract_str(&bytes[5..])?)
-            }
-
-            _ => {
-                let bytes = get_feature_report(&self.device, 0x05, 32)?;
-                Ok(extract_str(&bytes[6..])?)
-            }
-        }
+        self.transport.firmware_version(self.kind)
     }
 
     /// Reads all possible input from Stream Deck device
     pub fn read_input(&self, timeout: Option<Duration>) -> Result<StreamDeckInput, StreamDeckError> {
         match &self.kind {
             Kind::Plus | Kind::PlusXl => {
-                let data = read_data(&self.device, (6 + self.kind.key_count()).max(5 + self.kind.encoder_count()) as usize, timeout)?;
+                let data = self.transport.read_report((6 + self.kind.key_count()).max(5 + self.kind.encoder_count()) as usize, timeout)?;
 
                 if data[0] == 0 {
                     return Ok(StreamDeckInput::NoData);
@@ -214,8 +208,8 @@ impl StreamDeck {
 
             _ => {
                 let data = match self.kind {
-                    Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniDiscord | Kind::MiniMk2Module => read_data(&self.device, 1 + self.kind.key_count() as usize, timeout),
-                    _ => read_data(&self.device, 4 + self.kind.key_count() as usize + self.kind.touchpoint_count() as usize, timeout),
+                    Kind::Original | Kind::Mini | Kind::MiniMk2 | Kind::MiniDiscord | Kind::MiniMk2Module => self.transport.read_report(1 + self.kind.key_count() as usize, timeout),
+                    _ => self.transport.read_report(4 + self.kind.key_count() as usize + self.kind.touchpoint_count() as usize, timeout),
                 }?;
 
                 if data[0] == 0 {
@@ -235,7 +229,7 @@ impl StreamDeck {
 
                 buf.extend(vec![0u8; 15]);
 
-                Ok(send_feature_report(&self.device, buf.as_slice())?)
+                self.transport.send_feature_report(buf.as_slice())
             }
 
             _ => {
@@ -243,7 +237,7 @@ impl StreamDeck {
 
                 buf.extend(vec![0u8; 30]);
 
-                Ok(send_feature_report(&self.device, buf.as_slice())?)
+                self.transport.send_feature_report(buf.as_slice())
             }
         }
     }
@@ -258,7 +252,7 @@ impl StreamDeck {
 
                 buf.extend(vec![0u8; 11]);
 
-                Ok(send_feature_report(&self.device, buf.as_slice())?)
+                self.transport.send_feature_report(buf.as_slice())
             }
 
             _ => {
@@ -266,7 +260,7 @@ impl StreamDeck {
 
                 buf.extend(vec![0u8; 29]);
 
-                Ok(send_feature_report(&self.device, buf.as_slice())?)
+                self.transport.send_feature_report(buf.as_slice())
             }
         }
     }
@@ -453,7 +447,7 @@ impl StreamDeck {
         buf.extend(vec![touchpoint_index]);
         buf.extend(vec![red, green, blue]);
 
-        Ok(send_feature_report(&self.device, buf.as_slice())?)
+        self.transport.send_feature_report(buf.as_slice())
     }
 
     /// Flushes the button's image to the device
@@ -505,7 +499,7 @@ impl StreamDeck {
             // Adding padding
             buf.extend(vec![0u8; image_report_length - buf.len()]);
 
-            write_data(&self.device, &buf)?;
+            self.transport.write_report(&buf)?;
 
             bytes_remaining -= this_length;
             page_number += 1;
@@ -582,6 +576,26 @@ pub enum StreamDeckError {
 
     /// Stream Deck sent unexpected data
     BadData,
+
+    /// I/O error from a network transport
+    #[cfg(feature = "tcp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tcp")))]
+    Io(std::io::Error),
+
+    /// A network operation timed out
+    #[cfg(feature = "tcp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tcp")))]
+    Timeout,
+
+    /// The network transport is not connected
+    #[cfg(feature = "tcp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tcp")))]
+    Disconnected,
+
+    /// The device or dock sent a malformed or unexpected frame
+    #[cfg(feature = "tcp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tcp")))]
+    Protocol(&'static str),
 }
 
 impl Display for StreamDeckError {
@@ -620,6 +634,13 @@ impl From<tokio::task::JoinError> for StreamDeckError {
 impl<T> From<PoisonError<T>> for StreamDeckError {
     fn from(_value: PoisonError<T>) -> Self {
         Self::PoisonError
+    }
+}
+
+#[cfg(feature = "tcp")]
+impl From<std::io::Error> for StreamDeckError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
     }
 }
 
